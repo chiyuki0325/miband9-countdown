@@ -1,0 +1,228 @@
+<template>
+  <div class="new-page">
+    <div class="header">
+      <text class="header-time">{{page_title}}</text>
+      <input type="button" class="back-button" value="<" @click="routeBack" />
+    </div>
+    <div class="gap"></div>
+    <div class="line">
+      <text>事件名称</text>
+      <div class="input-line" @click="editEventName"><text>{{event_name}}</text></div>
+    </div>
+    <div class="line">
+      <text>目标日</text>
+      <div class="input-line" @click="editDate"><text>{{date}}</text></div>
+    </div>
+    <div class="gap"></div>
+    <div class="line">
+      <text>在首页显示</text>
+      <switch checked={{on_index}} @change="changeDisplayOnIndex"></switch>
+    </div>
+    <div class="line">
+      <input type="button" class="save-button" @click="saveEvent" value="保存"></input>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router"
+import storage from "@system.storage"
+import { showToast } from "@system.prompt"
+
+export default {
+  protected: {
+    event_name: "",
+    date: "",
+    on_index: true,
+    page_title: "新建倒数日",
+    callback_uri: "/pages/index",
+    date_callback: "",
+    input_callback: "",
+    event_id: "0",
+    extend: "true"
+  },
+	routeBack() {
+    router.push({
+      uri: this.callback_uri,
+      params: {
+        ___PARAM_LAUNCH_FLAG___: "clearTask"
+      }
+    })
+  },
+  onReady() {
+    const isInputCallback = !(this.input_callback == "")
+    const isDateCallback = !(this.date_callback == "")
+    if (!isInputCallback && !isDateCallback) {
+      // 没有 callback
+      if (this.date == "") {
+        const _date = new Date()
+        this.date = _date.getFullYear() + "-" + (_date.getMonth() + 1) + "-" + _date.getDate()
+      }
+      return
+    } else if (isInputCallback) {
+      console.log("Input callback")
+      const callback = JSON.parse(this.input_callback)
+      const _cache = JSON.parse(callback.input_cache_data)
+      this.event_id = _cache.event_id
+      this.callback_uri = _cache.callback_uri
+      this.extend = _cache.extend
+      this.page_title = _cache.page_title
+
+      this.event_name = callback.input_text
+      this.date = _cache.date
+      this.on_index = _cache.on_index
+    } else if (isDateCallback) {
+      console.log("Date callback")
+      const callback = JSON.parse(this.date_callback)
+      const _cache = JSON.parse(callback.input_cache_data)
+      this.event_id = _cache.event_id
+      this.callback_uri = _cache.callback_uri
+      this.extend = _cache.extend
+      this.page_title = _cache.page_title
+      
+      this.event_name = _cache.event_name
+      this.date = callback.date
+      this.on_index = _cache.on_index
+    }
+    console.log({
+      event_id: this.event_id,
+      extend: this.extend,
+      event_name: this.event_name,
+      date: this.date,
+      callback_uri: this.callback_uri,
+      on_index: this.on_index
+    })
+  },
+  editEventName() {
+    router.push({
+      uri: "/pages/input",
+      params: {
+        "page_title": "编辑事件名称",
+        "input_cache_data": JSON.stringify({
+          "event_id": this.event_id,
+          "extend": this.extend,
+          "page_title": this.page_title,
+          "callback_uri": this.callback_uri,
+          "date": this.date,
+          "on_index": this.on_index
+        }),
+        "input_text": this.event_name,
+        "callback_uri": "/pages/edit"
+      }
+    })
+  },
+  editDate() {
+    router.push({
+      uri: "/pages/inputdate",
+      params: {
+        "input_cache_data": JSON.stringify({
+          "event_id": this.event_id,
+          "extend": this.extend,
+          "page_title": this.page_title,
+          "callback_uri": this.callback_uri,
+          "event_name": this.event_name,
+          "on_index": this.on_index
+        }),
+        "date": this.date,
+        "callback_uri": "/pages/edit"
+      }
+    })
+  },
+  
+  changeDisplayOnIndex(evt) {
+    this.on_index = evt.checked
+  },
+  saveEvent() {
+    if (this.event_name == "") {
+      showToast({message: "事件名称不能为空"})
+      return
+    }
+
+    if (this.extend == "true") {
+      storage.get({
+        key: "count",
+        default: "0",
+        success: data => {
+          storage.set({
+            key: "count",
+            value: String(Number(data) + 1),
+            success: data => "extend count success"
+          })
+        }
+      })
+    }
+
+    storage.set({
+      key: `event${this.event_id}`,
+      value: JSON.stringify({
+        event_name: this.event_name,
+        date: this.date,
+        on_index: this.on_index
+      }),
+      success: data => {
+        router.replace({
+          uri: this.callback_uri,
+        })
+        showToast({message: "事件保存成功！"})
+      }
+    })
+
+  }
+};
+</script>
+
+<style>
+@import "../../styles/header-new.css";
+
+.new-page {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  background-color: black;
+}
+
+.gap {
+  height: 12px
+}
+
+.line {
+  display: flex;
+  flex-direction: column;
+  justify-content: left;
+}
+
+.line text {
+  font-size: 22px;
+}
+
+switch {
+  margin-top: 2px;
+  width: 100px;
+  height: 44px;
+  track-color: gray;
+}
+
+.save-button {
+  width: 100px;
+  height: 44px;
+  background-color: black;
+  border: 3px;
+  border-color: gray;
+  color: white;
+  font-size: 22px;
+  margin-top: 30px;
+}
+
+.input-line {
+  height: 40px;
+  width: 180px;
+  border: 1px;
+  border-radius: 10px;
+}
+
+.input-line text {
+  margin: 2px;
+  margin-left: 4px;
+}
+</style>

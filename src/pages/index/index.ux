@@ -1,0 +1,222 @@
+<template>
+  <div class="index-page">
+    <div class="header">
+      <text class="header-time">{{ time }}</text>
+      <input type="button" class="back-button" value="<" @click="exitApp" />
+    </div>
+
+    <swiper indicator="false" class="countdown-swiper">
+      <div class="countdown-page {{$item.already ? 'countdown-already' : 'countdown-future'}}" for="{{first_page}}">
+        <div class="countdown-event-bg">
+          <text class="countdown-event">{{ $item.name }}</text>
+        </div>
+        <div class="countdown-days-bg2"></div>
+        <div class="countdown-days-bg">
+          <text class="countdown-days">{{ $item.days }}</text>
+        </div>
+      </div>
+    </swiper>
+    
+    <input type="button" class="more-button" value="{{more_button_text}}" @click="routeMore" />
+  </div>
+</template>
+
+<script>
+import router from "@system.router";
+import app from "@system.app";
+import storage from "@system.storage";
+
+const dateDiff = (date1) =>
+	Math.floor(
+		(new Date().getTime() - new Date(date1).getTime()) / (1000 * 60 * 60 * 24)
+	);
+
+export default {
+	private: {
+		time: "07:21",
+		count: 0,
+    first_page: [{name: "暂无事件...", days: "无", already: false}],
+		more_button_text: "更多",
+	},
+
+	exitApp: () => app.terminate(),
+
+	getFirstPageData(idx) {
+		storage.get({
+			key: `event${idx}`,
+			success: (data) => {
+        if (data == "") {
+          // 到头了
+          this.finalizeFirstPage()
+        } else {
+          this.showFirstPageData(idx, data)
+        }
+      },
+			fail: (data, code) => {
+        if (idx == (this.count - 1)) {
+          // 到头了
+          this.finalizeFirstPage()
+        } else {
+          this.getFirstPageData(idx + 1)
+        }
+      }
+		});
+	},
+
+	showFirstPageData(idx, data) {
+		const _data = JSON.parse(data);
+    if (!_data.on_index) {
+      this.getFirstPageData(idx + 1)
+      return
+    }
+
+    let name = _data.event_name
+    let days
+    let already = true
+		const diff = dateDiff(_data.date);
+		if (diff > 0) {
+			name += "已经";
+			days = String(diff);
+		} else if (diff == 0) {
+			days = "今天";
+		} else {
+			name += "还有";
+			days = String(-diff);
+      already = false
+		}
+    this.first_page.push({name, days, already})
+    this.getFirstPageData(idx + 1)
+	},
+
+  finalizeFirstPage() {
+    if (this.first_page.length == 0) {
+      this.first_page = [{name: "暂无事件...", days: "无", already: false}]
+			this.more_button_text = "添加事件";
+    }
+  },
+
+	onReady() {
+		// 写入页面顶部时间
+		const date = new Date();
+		const hour = date.getHours().toString().padStart(2, "0");
+		const minute = date.getMinutes().toString().padStart(2, "0");
+		this.time = hour + ":" + minute;
+
+		// 获取数目
+		storage.get({
+			key: "count",
+			default: "0",
+			success: (data) => {
+				this.count = Number(data);
+				if (this.count == 0) {
+					this.more_button_text = "添加事件";
+				} else {
+					// 不为 0
+          this.first_page = []
+					this.getFirstPageData(0);
+				}
+			},
+		});
+	},
+
+	routeMore() {
+		if (this.count == 0) {
+			router.push({
+         uri: "/pages/edit",
+         params: {
+          extend: true,
+          callback_uri: "/pages/index"
+         }
+        });
+		} else {
+			router.push({ uri: "/pages/list" });
+		}
+	},
+};
+</script>
+
+<style>
+@import "../../styles/header-new.css";
+
+.index-page {
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	color: white;
+	background-color: black;
+}
+
+.countdown-swiper {
+  width: 166px;
+  height: 166px;
+  margin-top: 40px;
+}
+
+.countdown-page {
+  display: flex;
+  flex-direction: column;
+  width: 166px;
+  height: 166px;
+  border-radius: 20px;
+  align-items: center;
+}
+
+.countdown-future {
+  background-color: #3184d0;
+}
+.countdown-already {
+  background-color: #f78803;
+}
+
+.countdown-event {
+    font-size: 20px;
+    text-align: center;
+    text-wrap: nowrap;
+    width: 150px;
+    /*text-overflow: ellipsis;*/
+    position: relative;
+    top: -4px
+}
+
+.countdown-event-bg {
+    top: 4px;
+    height: 44px;
+    margin: none;
+    padding: none;
+}
+
+.countdown-days-bg {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 126px;
+    background-color: #dedede;
+    color: black;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    border-radius: 20px;
+}
+
+.countdown-days-bg2 {
+    position: absolute;
+    background-color: #dedede;
+    width: 100%;
+    height: 20px;
+    top: 42px;
+}
+
+.countdown-days {
+    text-align: center;
+    font-size: 56px;
+    font-weight: bold;
+}
+.more-button {
+	background-color: #3184d0;
+	font-size: 22px;
+	margin-top: 40px;
+	height: 48px;
+	width: 128px;
+	color: white;
+}
+</style>

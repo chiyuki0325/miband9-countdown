@@ -1,0 +1,34 @@
+.page {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    background-color: black;
+}
+
+.header {
+    position: absolute;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100px;
+}
+
+.header-time {
+    font-size: 20px;
+}
+
+.back-button {
+    width: 70px;
+    height: 40px;
+    position: relative;
+    top: 5px;
+    background-color: black;
+    border: 3px;
+    border-color: gray;
+    color: darkgray;
+    font-size: 26px;
+}

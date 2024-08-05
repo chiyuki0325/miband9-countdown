@@ -1,0 +1,207 @@
+<template>
+  <div class="list-page">
+    <div class="header">
+      <text class="header-time">{{page_title}}</text>
+      <input type="button" class="back-button" value="<" @click="routeBack" />
+    </div>
+    <scroll scroll-y="true" bounces="true">
+      <div class="countdown-card {{$item.already ? 'countdown-already' : 'countdown-future'}}"
+        @click="routeEditEvent($item.idx)" for="{{countdowns}}">
+        <text class="countdown-name">{{$item.name}}</text>
+        <div class="countdown-radius"></div>
+        <div class="countdown-background">
+          <text class="countdown-days">{{$item.days}}</text>
+        </div>
+      </div>
+    </scroll>
+    <input type="button" class="add-button" @click="routeAdd()" value="添加事件"></input>
+  </div>
+</template>
+
+<script>
+import router from "@system.router";
+import storage from "@system.storage"
+
+const dateDiff = (date1) =>
+	Math.floor(
+		(new Date().getTime() - new Date(date1).getTime()) / (1000 * 60 * 60 * 24)
+	);
+
+let _countdowns = []
+
+export default {
+  private: {
+    countdowns: [],
+    page_title: "倒数日"
+  },
+  routeBack() {
+    router.push({
+      uri: "/pages/index",
+      params: {
+        ___PARAM_LAUNCH_FLAG___: "clearTask"
+      }
+    })
+  },
+  onReady() {
+    storage.get({
+      key: "count",
+      success: data => {
+        this.page_title = data + " 个倒数日"
+        this.loadEvent(0)
+      }
+    })
+  },
+  routeEditEvent(event_id) {
+    storage.get({
+      key: `event${event_id}`,
+      success: data => {
+        const _data = JSON.parse(data)
+        router.push({
+          uri: "/pages/edit",
+          params: {
+            extend: "false",
+            page_title: "编辑倒数日",
+            event_id: String(event_id),
+            event_name: _data.event_name,
+            date: _data.date,
+            on_index: _data.on_index,
+            callback_uri: "/pages/list",
+          }
+        })
+      }
+    })
+  },
+  routeAdd() {
+    router.push({
+      uri: "/pages/edit",
+      params: {
+        extend: "true",
+        event_id: this.countdowns.length,
+        callback_uri: "/pages/list",
+      }
+    })
+  },
+  loadEvent(idx) {
+    storage.get({
+      key: `event${idx}`,
+      success: data => {
+        if (data == "") {
+          this.finalizeLoadEvent()
+          return
+        }
+        const _data = JSON.parse(data);
+        let name = _data.event_name
+        let days
+        let already = true
+        const diff = dateDiff(_data.date);
+        if (diff > 0) {
+          name += "已经";
+          days = String(diff);
+        } else if (diff == 0) {
+          days = "今天";
+        } else {
+          name += "还有";
+          days = String(-diff);
+          already = false
+        }
+        _countdowns.push({name, days, already, idx})
+        this.loadEvent(idx + 1)
+      }
+    })
+  },
+  finalizeLoadEvent() {
+    // 最终更新 view model 触发渲染
+    this.countdowns = _countdowns
+    console.log(_countdowns)
+  }
+};
+</script>
+
+<style>
+@import "../../styles/header-new.css";
+
+.list-page {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  background-color: black;
+}
+
+scroll {
+  display: flex;
+  flex-direction: column;
+  width: 182px;
+  height: 300px;
+  position: relative;
+  top: 8px;
+}
+
+.countdown-card {
+  display: flex;
+  flex-direction: row;
+  width: 170px;
+  height: 66px;
+  border-radius: 10px;
+  padding: 6px;
+  margin-bottom: 8px;
+}
+
+.countdown-name {
+  font-size: 20px;
+  width: 80px;
+  height: 60px
+}
+
+.countdown-radius {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 66px;
+  width: 20px;
+  background-color: white;
+  border-radius: 10px;
+}
+
+.countdown-future {
+  background-color: #3184d0;
+}
+
+.countdown-already {
+  background-color: #f78803;
+}
+
+.countdown-background {
+  background-color: white;
+  position: absolute;
+  top: 0px;
+  right: 10px;
+  width: 60px;
+  height: 66px
+}
+
+.countdown-days {
+  color: black;
+  font-weight: bold;
+  font-size: 30px;
+  text-align: center;
+  width: 60px;
+  height: 66px;
+  text-overflow: clip;
+  position: relative;
+  right: -5px;
+  z-index: 1000;
+}
+
+.add-button {
+  width: 140px;
+  height: 44px;
+  background-color: black;
+  border: 3px;
+  border-color: gray;
+  color: white;
+  font-size: 22px;
+  margin-top: 30px;
+  position: absolute;
+  bottom: 32px;
+}</style>
