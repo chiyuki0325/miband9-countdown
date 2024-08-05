@@ -18,8 +18,9 @@
       <text>在首页显示</text>
       <switch checked={{on_index}} @change="changeDisplayOnIndex"></switch>
     </div>
-    <div class="line">
+    <div class="bottom-buttons">
       <input type="button" class="save-button" @click="saveEvent" value="保存"></input>
+      <input if="{{this.extend != 'true'}}" type="button" class="save-button" @click="deleteEvent" value="删除"></input>
     </div>
   </div>
 </template>
@@ -84,14 +85,7 @@ export default {
       this.date = callback.date
       this.on_index = _cache.on_index
     }
-    console.log({
-      event_id: this.event_id,
-      extend: this.extend,
-      event_name: this.event_name,
-      date: this.date,
-      callback_uri: this.callback_uri,
-      on_index: this.on_index
-    })
+    global.runGC()
   },
   editEventName() {
     router.push({
@@ -166,7 +160,42 @@ export default {
         showToast({message: "事件保存成功！"})
       }
     })
-
+  },
+  deleteEvent() {
+    storage.get({
+      key: 'count',
+      success: data => {
+        showToast({message: "正在删除事件"})
+        const count = Number(data)
+        console.log("event count: " + data)
+        storage.delete({
+          key: `event${this.event_id}`,
+          success: data => {
+            console.log("delete event: " + this.event_id)
+            for (let i = Number(this.event_id); i < count; i++) {
+              // 把后续的事件全部前移
+              storage.get({
+                key: `event${i+1}`,
+                success: data => {
+                  storage.set({
+                    key: `event${i}`,
+                    value: data,
+                    success: data => console.log(`moved event ${i+1} to event ${i}`)
+                  })
+                }
+              })
+            }
+            setTimeout(() => {
+              global.runGC()
+              router.replace({
+                uri: this.callback_uri
+              })
+              showToast({message: "事件删除成功！"})
+            }, 800)
+          }
+        })
+      }
+    })
   }
 };
 </script>
@@ -204,7 +233,7 @@ switch {
 }
 
 .save-button {
-  width: 100px;
+  width: 78px;
   height: 44px;
   background-color: black;
   border: 3px;
@@ -212,6 +241,8 @@ switch {
   color: white;
   font-size: 22px;
   margin-top: 30px;
+  margin-left: 2px;
+  margin-right: 2px;
 }
 
 .input-line {
@@ -225,5 +256,10 @@ switch {
 .input-line text {
   margin: 2px;
   margin-left: 4px;
+}
+
+.bottom-buttons {
+  display: flex;
+  flex-direction: row;
 }
 </style>

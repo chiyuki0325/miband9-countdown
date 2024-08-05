@@ -2,22 +2,24 @@
   <div class="index-page">
     <div class="header">
       <text class="header-time">{{ time }}</text>
-      <input type="button" class="back-button" value="<" @click="exitApp" />
+      <input type="button" class="back-button" value="<" @click="exitApp()" />
     </div>
 
     <swiper indicator="false" class="countdown-swiper">
-      <div class="countdown-page {{$item.already ? 'countdown-already' : 'countdown-future'}}" for="{{first_page}}">
-        <div class="countdown-event-bg">
-          <text class="countdown-event">{{ $item.name }}</text>
-        </div>
-        <div class="countdown-days-bg2"></div>
-        <div class="countdown-days-bg">
-          <text class="countdown-days">{{ $item.days }}</text>
+      <div for="{{first_page}}">
+        <div class="countdown-page" style="background-color: {{$item.already ? '#f78803' : '#3184d0'}}">
+          <div class="countdown-event-bg">
+            <text class="countdown-event">{{ $item.name }}</text>
+          </div>
+          <div class="countdown-days-bg2"></div>
+          <div class="countdown-days-bg">
+            <text class="countdown-days">{{ $item.days }}</text>
+          </div>
         </div>
       </div>
     </swiper>
-    
-    <input type="button" class="more-button" value="{{more_button_text}}" @click="routeMore" />
+
+    <input type="button" class="more-button" value="{{more_button_text}}" @click="routeMore()" />
   </div>
 </template>
 
@@ -25,17 +27,21 @@
 import router from "@system.router";
 import app from "@system.app";
 import storage from "@system.storage";
+import { showToast } from "@system.prompt";
 
 const dateDiff = (date1) =>
 	Math.floor(
 		(new Date().getTime() - new Date(date1).getTime()) / (1000 * 60 * 60 * 24)
 	);
 
+let _first_page = [];
+let load_finished = false
+
 export default {
 	private: {
 		time: "07:21",
 		count: 0,
-    first_page: [{name: "暂无事件...", days: "无", already: false}],
+		first_page: [{ name: "暂无事件...", days: "无", already: false }],
 		more_button_text: "更多",
 	},
 
@@ -45,34 +51,26 @@ export default {
 		storage.get({
 			key: `event${idx}`,
 			success: (data) => {
-        if (data == "") {
-          // 到头了
-          this.finalizeFirstPage()
-        } else {
-          this.showFirstPageData(idx, data)
-        }
-      },
-			fail: (data, code) => {
-        if (idx == (this.count - 1)) {
-          // 到头了
-          this.finalizeFirstPage()
-        } else {
-          this.getFirstPageData(idx + 1)
-        }
-      }
+				if (data == "") {
+					// 到头了
+					this.finalizeFirstPage();
+				} else {
+					this.showFirstPageData(idx, data);
+				}
+			},
 		});
 	},
 
 	showFirstPageData(idx, data) {
 		const _data = JSON.parse(data);
-    if (!_data.on_index) {
-      this.getFirstPageData(idx + 1)
-      return
-    }
+		if (!_data.on_index) {
+			this.getFirstPageData(idx + 1);
+			return;
+		}
 
-    let name = _data.event_name
-    let days
-    let already = true
+		let name = _data.event_name;
+		let days;
+		let already = true;
 		const diff = dateDiff(_data.date);
 		if (diff > 0) {
 			name += "已经";
@@ -82,25 +80,51 @@ export default {
 		} else {
 			name += "还有";
 			days = String(-diff);
-      already = false
+			already = false;
 		}
-    this.first_page.push({name, days, already})
-    this.getFirstPageData(idx + 1)
+		_first_page.push({ name, days, already });
+		this.getFirstPageData(idx + 1);
 	},
 
-  finalizeFirstPage() {
-    if (this.first_page.length == 0) {
-      this.first_page = [{name: "暂无事件...", days: "无", already: false}]
+	finalizeFirstPage() {
+		if (this.first_page.length == 0) {
+			this.first_page = [{ name: "暂无事件...", days: "无", already: false }];
 			this.more_button_text = "添加事件";
-    }
-  },
+		} else {
+			this.first_page = _first_page;
+			_first_page = null;
+		}
+    global.runGC()
+    load_finished = true
+	},
 
 	onReady() {
+    load_finished = false
+    // 清除缓存
+    router.clear()
+
 		// 写入页面顶部时间
 		const date = new Date();
 		const hour = date.getHours().toString().padStart(2, "0");
 		const minute = date.getMinutes().toString().padStart(2, "0");
 		this.time = hour + ":" + minute;
+
+    // 首次使用提示
+    storage.get({
+      key: "tipRead",
+      default: "0",
+      success: data => {
+        if (data == "0") {
+          storage.set({
+            key: "tipRead", value: "1",
+            success: _ => showToast({
+              message: "开发者技术不成熟，故如遇到应用卡死时请摘下手环，将自动重启。谢谢理解，祝使用愉快！",
+              duration: 7000
+            })
+          })
+        }
+      }
+    })
 
 		// 获取数目
 		storage.get({
@@ -110,24 +134,25 @@ export default {
 				this.count = Number(data);
 				if (this.count == 0) {
 					this.more_button_text = "添加事件";
+          load_finished = true
 				} else {
 					// 不为 0
-          this.first_page = []
+					_first_page = [];
 					this.getFirstPageData(0);
 				}
 			},
 		});
 	},
-
 	routeMore() {
+    if (!load_finished) return
 		if (this.count == 0) {
 			router.push({
-         uri: "/pages/edit",
-         params: {
-          extend: true,
-          callback_uri: "/pages/index"
-         }
-        });
+				uri: "/pages/edit",
+				params: {
+					extend: true,
+					callback_uri: "/pages/index",
+				},
+			});
 		} else {
 			router.push({ uri: "/pages/list" });
 		}
@@ -147,69 +172,62 @@ export default {
 }
 
 .countdown-swiper {
-  width: 166px;
-  height: 166px;
-  margin-top: 40px;
+	width: 166px;
+	height: 166px;
+	margin-top: 40px;
 }
 
 .countdown-page {
-  display: flex;
-  flex-direction: column;
-  width: 166px;
-  height: 166px;
-  border-radius: 20px;
-  align-items: center;
-}
-
-.countdown-future {
-  background-color: #3184d0;
-}
-.countdown-already {
-  background-color: #f78803;
+	display: flex;
+	flex-direction: column;
+	width: 166px;
+	height: 166px;
+	border-radius: 20px;
+	align-items: center;
 }
 
 .countdown-event {
-    font-size: 20px;
-    text-align: center;
-    text-wrap: nowrap;
-    width: 150px;
-    /*text-overflow: ellipsis;*/
-    position: relative;
-    top: -4px
+	font-size: 20px;
+	text-align: center;
+	text-wrap: nowrap;
+	width: 150px;
+	/*text-overflow: ellipsis;*/
+	position: relative;
+	top: -4px;
 }
 
 .countdown-event-bg {
-    top: 4px;
-    height: 44px;
-    margin: none;
-    padding: none;
+	top: 4px;
+	height: 44px;
+	margin: none;
+	padding: none;
 }
 
 .countdown-days-bg {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 126px;
-    background-color: #dedede;
-    color: black;
-    justify-content: center;
-    align-items: center;
-    z-index: 100;
-    border-radius: 20px;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 126px;
+	background-color: #dedede;
+	color: black;
+	justify-content: center;
+	align-items: center;
+	z-index: 100;
+	border-radius: 20px;
 }
 
 .countdown-days-bg2 {
-    position: absolute;
-    background-color: #dedede;
-    width: 100%;
-    height: 20px;
-    top: 42px;
+	position: absolute;
+	background-color: #dedede;
+	width: 100%;
+	height: 20px;
+	top: 42px;
 }
 
 .countdown-days {
-    text-align: center;
-    font-size: 56px;
-    font-weight: bold;
+	text-align: center;
+	font-size: 56px;
+	font-weight: bold;
 }
 .more-button {
 	background-color: #3184d0;

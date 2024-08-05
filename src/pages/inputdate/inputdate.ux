@@ -36,6 +36,7 @@ export default {
   onReady() {
     [this.year, this.month, this.day] = this.date.split("-")
     this.updateDayPicker(Number(this.month))
+    global.runGC()
   },
   onYearChanged(e) {
     this.year = e.newValue
