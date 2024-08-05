@@ -1079,6 +1079,7 @@ export default {
     width: 178px;
     height: 44px;
     border: 1px;
+    border-color: white;
     border-radius: 10px;
     margin-bottom: 4px;
 }
@@ -1089,6 +1090,7 @@ export default {
     margin: 2px;
     border: 1px;
     display: flex;
+    border-color: white;
     flex-direction: column;
     justify-content: center;
     align-items: center;

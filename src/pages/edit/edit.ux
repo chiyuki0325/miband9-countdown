@@ -218,6 +218,7 @@ switch {
   height: 40px;
   width: 180px;
   border: 1px;
+  border-color: white;
   border-radius: 10px;
 }
 
