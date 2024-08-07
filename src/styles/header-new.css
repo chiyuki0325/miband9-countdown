@@ -1,11 +1,3 @@
-.page {
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    background-color: black;
-}
-
 .header {
     position: absolute;
     top: 0;

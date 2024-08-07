@@ -1,123 +1,129 @@
 <template>
   <div class="list-page">
     <div class="header">
-      <text class="header-time">{{page_title}}</text>
+      <text class="header-time">{{count}} 个倒数日</text>
       <input type="button" class="back-button" value="<" @click="routeBack" />
     </div>
     <scroll scroll-y="true" bounces="true">
-      <div for="{{countdowns}}">
-        <div class="countdown-card" 
-        style="background-color: {{$item.already ? '#f78803' : '#3184d0'}}" 
-        @click="routeEditEvent($item.idx)">
-          <text class="countdown-name">{{$item.name}}</text>
+      <div for="{{events}}">
+        <div class="countdown-card" style="background-color: {{$item.already ? '#f78803' : '#3184d0'}}"
+          @click="routeEditEvent($idx)">
+          <text class="countdown-name">{{$item.display_name}}</text>
           <div class="countdown-radius"></div>
           <div class="countdown-background">
-            <text class="countdown-days">{{$item.days}}</text>
+            <text class="countdown-days"
+            style="font-size: {{$item.font_size}}">{{$item.days}}</text>
           </div>
         </div>
       </div>
     </scroll>
     <input type="button" class="add-button" @click="routeAdd()" value="添加事件"></input>
+    <text id="version-number">v1.2</text>
   </div>
 </template>
 
 <script>
-import router from "@system.router";
+import router from "@system.router"
 import storage from "@system.storage"
 
 const dateDiff = (date1) =>
 	Math.floor(
 		(new Date().getTime() - new Date(date1).getTime()) / (1000 * 60 * 60 * 24)
-	);
-
-let _countdowns = []
+	)
 
 export default {
   private: {
-    countdowns: [],
-    page_title: "倒数日"
+    count: 0,
+    events: [],
+    /* [{name: string, display_name: string, date: string, days: string,
+        already: bool, on_index: bool, font_size: int}] */
   },
+
   routeBack() {
     router.replace({
       uri: "/pages/index"
     })
   },
+  
   onReady() {
-    _countdowns = []
     storage.get({
-      key: "count",
+      key: "events",
+      default: "[]",
       success: data => {
-        this.page_title = data + " 个倒数日"
-        this.loadEvent(0)
+        this.events = JSON.parse(data)
+					.map((event) => {
+						let days,
+              font_size,
+              display_name = event.name,
+							already = true;
+
+						const diff = dateDiff(event.date);
+						if (diff > 0) {
+							display_name += "已经";
+							days = String(diff);
+						} else if (diff == 0) {
+							days = "今天";
+						} else {
+							display_name += "还有";
+							days = String(-diff);
+							already = false;
+						}
+
+            const days_length = String(days).length
+            if (days_length < 3) {
+              // 1, 2
+              font_size = 30
+            } else if (days_length == 3) {
+              font_size = 28
+            } else {
+              font_size = 20
+            }
+            
+						return {
+							name: event.name,
+              display_name,
+              date: event.date,
+							days,
+							already,
+              on_index: event.on_index,
+              font_size
+						};
+					});
+        this.count = this.events.length
+        global.runGC()
       }
     })
   },
+
+  onRefresh() {
+    router.clear()
+  },
+
   routeEditEvent(event_id) {
-    storage.get({
-      key: `event${event_id}`,
-      success: data => {
-        const _data = JSON.parse(data)
-        router.push({
-          uri: "/pages/edit",
-          params: {
-            extend: "false",
-            page_title: "编辑倒数日",
-            event_id: String(event_id),
-            event_name: _data.event_name,
-            date: _data.date,
-            on_index: _data.on_index,
-            callback_uri: "/pages/list",
-          }
-        })
+    const event = this.events[event_id]
+    router.push({
+      uri: "/pages/edit",
+      params: {
+        extend: "false",
+        event_id: String(event_id),
+        event_name: event.name,
+        date: event.date,
+        on_index: event.on_index,
+        callback_uri: "/pages/list",
       }
     })
   },
+
   routeAdd() {
     router.push({
       uri: "/pages/edit",
       params: {
         extend: "true",
-        event_id: this.countdowns.length,
+        event_id: this.count,
         callback_uri: "/pages/list",
       }
     })
   },
-  loadEvent(idx) {
-    storage.get({
-      key: `event${idx}`,
-      success: data => {
-        if (data == "") {
-          this.finalizeLoadEvent()
-          return
-        }
-        const _data = JSON.parse(data);
-        let name = _data.event_name
-        let days
-        let already = true
-        const diff = dateDiff(_data.date);
-        if (diff > 0) {
-          name += "已经";
-          days = String(diff);
-        } else if (diff == 0) {
-          name += "就是今天";
-          days = "今";
-        } else {
-          name += "还有";
-          days = String(-diff);
-          already = false
-        }
-        _countdowns.push({name, days, already, idx})
-        this.loadEvent(idx + 1)
-      }
-    })
-  },
-  finalizeLoadEvent() {
-    // 最终更新 view model 触发渲染
-    this.countdowns = _countdowns
-    console.log(_countdowns)
-    _countdowns = null  // 释放内存
-    global.runGC()
-  }
 };
 </script>
 
@@ -154,7 +160,8 @@ scroll {
 .countdown-name {
   font-size: 20px;
   width: 80px;
-  height: 60px
+  height: 60px;
+  text-overflow: ellipsis;
 }
 
 .countdown-radius {
@@ -165,6 +172,7 @@ scroll {
   width: 20px;
   background-color: white;
   border-radius: 10px;
+  z-index: -1;
 }
 
 .countdown-background {
@@ -173,20 +181,20 @@ scroll {
   top: 0px;
   right: 10px;
   width: 60px;
-  height: 66px
+  height: 66px;
+  z-index: 1000;
 }
 
 .countdown-days {
   color: black;
   font-weight: bold;
-  font-size: 30px;
   text-align: center;
   width: 60px;
   height: 66px;
   text-overflow: clip;
   position: relative;
   right: -5px;
-  z-index: 1000;
+  z-index: 1001;
 }
 
 .add-button {
@@ -200,5 +208,12 @@ scroll {
   margin-top: 30px;
   position: absolute;
   bottom: 32px;
+}
+
+#version-number {
+  position: absolute;
+  bottom: 2px;
+  color: gray;
+  font-size: 16px;
 }
 </style>

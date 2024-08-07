@@ -1,7 +1,7 @@
 <template>
     <div class="input-page">
         <div class="header">
-            <text static class="header-time">{{ page_title }}</text>
+            <text static class="header-time">编辑事件名称</text>
         </div>
         <div class="input-area">
             <text class="input-text">
@@ -960,7 +960,6 @@ export default {
 		letter_mode: false,
 	},
 	protected: {
-		page_title: "输入文字",
 		callback_uri: "",
 		input_text: "",
         input_cache_data: ""

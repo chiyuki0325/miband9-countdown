@@ -6,7 +6,7 @@
     </div>
 
     <swiper indicator="false" class="countdown-swiper">
-      <div for="{{first_page}}">
+      <div for="{{events}}">
         <div class="countdown-page" style="background-color: {{$item.already ? '#f78803' : '#3184d0'}}">
           <div class="countdown-event-bg">
             <text class="countdown-event">{{ $item.name }}</text>
@@ -19,7 +19,7 @@
       </div>
     </swiper>
 
-    <input type="button" class="more-button" value="{{more_button_text}}" @click="routeMore()" />
+    <input type="button" class="more-button" value="{{is_no_event ? '添加事件' : '更多'}}" @click="routeMore()" />
   </div>
 </template>
 
@@ -34,74 +34,19 @@ const dateDiff = (date1) =>
 		(new Date().getTime() - new Date(date1).getTime()) / (1000 * 60 * 60 * 24)
 	);
 
-let _first_page = [];
-let load_finished = false
 
 export default {
 	private: {
 		time: "07:21",
-		count: 0,
-		first_page: [{ name: "暂无事件...", days: "无", already: false }],
-		more_button_text: "更多",
+		events: [{ name: "暂无事件...", days: "无", already: false }],
+		is_no_event: false,
 	},
 
 	exitApp: () => app.terminate(),
 
-	getFirstPageData(idx) {
-		storage.get({
-			key: `event${idx}`,
-			success: (data) => {
-				if (data == "") {
-					// 到头了
-					this.finalizeFirstPage();
-				} else {
-					this.showFirstPageData(idx, data);
-				}
-			},
-		});
-	},
-
-	showFirstPageData(idx, data) {
-		const _data = JSON.parse(data);
-		if (!_data.on_index) {
-			this.getFirstPageData(idx + 1);
-			return;
-		}
-
-		let name = _data.event_name;
-		let days;
-		let already = true;
-		const diff = dateDiff(_data.date);
-		if (diff > 0) {
-			name += "已经";
-			days = String(diff);
-		} else if (diff == 0) {
-			days = "今天";
-		} else {
-			name += "还有";
-			days = String(-diff);
-			already = false;
-		}
-		_first_page.push({ name, days, already });
-		this.getFirstPageData(idx + 1);
-	},
-
-	finalizeFirstPage() {
-		if (this.first_page.length == 0) {
-			this.first_page = [{ name: "暂无事件...", days: "无", already: false }];
-			this.more_button_text = "添加事件";
-		} else {
-			this.first_page = _first_page;
-			_first_page = null;
-		}
-    global.runGC()
-    load_finished = true
-	},
-
 	onReady() {
-    load_finished = false
-    // 清除缓存
-    router.clear()
+		// 清除缓存
+		router.clear();
 
 		// 写入页面顶部时间
 		const date = new Date();
@@ -109,47 +54,71 @@ export default {
 		const minute = date.getMinutes().toString().padStart(2, "0");
 		this.time = hour + ":" + minute;
 
-    // 首次使用提示
-    storage.get({
-      key: "tipRead",
-      default: "0",
-      success: data => {
-        if (data == "0") {
-          storage.set({
-            key: "tipRead", value: "1",
-            success: _ => showToast({
-              message: "开发者技术不成熟，故如遇到应用卡死时请摘下手环，将自动重启。谢谢理解，祝使用愉快！",
-              duration: 7000
-            })
-          })
-        }
-      }
-    })
-
-		// 获取数目
+		// 首次使用提示
 		storage.get({
-			key: "count",
+			key: "tipRead",
 			default: "0",
 			success: (data) => {
-				this.count = Number(data);
-				if (this.count == 0) {
-					this.more_button_text = "添加事件";
-          load_finished = true
-				} else {
-					// 不为 0
-					_first_page = [];
-					this.getFirstPageData(0);
+				if (data == "0") {
+					storage.set({
+						key: "tipRead",
+						value: "1",
+						success: (_) =>
+							showToast({
+								message:
+									"开发者技术不成熟，故如遇到应用卡死时请摘下手环，将自动重启。谢谢理解，祝使用愉快！",
+								duration: 7000,
+							}),
+					});
 				}
 			},
 		});
+
+		// 获取数据
+		storage.get({
+			key: "events",
+			default: "[]",
+			success: (data) => {
+				const events = JSON.parse(data);
+				if (events.length == 0) {
+					this.is_no_event = true;
+					return;
+				}
+				this.events = events
+					.filter((event) => event.on_index == true)
+					.map((event) => {
+						let days,
+              name = event.name,
+							already = true;
+						const diff = dateDiff(event.date);
+            
+						if (diff > 0) {
+							name += "已经";
+							days = String(diff);
+						} else if (diff == 0) {
+							days = "今天";
+						} else {
+							name += "还有";
+							days = String(-diff);
+							already = false;
+						}
+						return {
+							name,
+							days,
+							already,
+						};
+					});
+				global.runGC();
+			},
+		});
 	},
+
 	routeMore() {
-    if (!load_finished) return
-		if (this.count == 0) {
+		if (this.is_no_event) {
 			router.push({
 				uri: "/pages/edit",
 				params: {
-					extend: true,
+					extend: "true",
 					callback_uri: "/pages/index",
 				},
 			});

@@ -1,8 +1,8 @@
 {
   "package": "ink.chyk.miBandCountdown",
   "name": "倒数日",
-  "versionName": "1.1.0",
-  "versionCode": 1,
+  "versionName": "1.2.0",
+  "versionCode": 10200,
   "minPlatformVersion": 1000,
   "icon": "/common/logo.png",
   "deviceTypeList": [

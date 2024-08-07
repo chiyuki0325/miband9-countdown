@@ -1,7 +1,7 @@
 <template>
   <div class="new-page">
     <div class="header">
-      <text class="header-time">{{page_title}}</text>
+      <text class="header-time">{{extend == "true" ? "新建" : "编辑"}}倒数日</text>
       <input type="button" class="back-button" value="<" @click="routeBack" />
     </div>
     <div class="gap"></div>
@@ -35,21 +35,19 @@ export default {
     event_name: "",
     date: "",
     on_index: true,
-    page_title: "新建倒数日",
     callback_uri: "/pages/index",
     date_callback: "",
     input_callback: "",
     event_id: "0",
     extend: "true"
   },
+  
 	routeBack() {
-    router.push({
-      uri: this.callback_uri,
-      params: {
-        ___PARAM_LAUNCH_FLAG___: "clearTask"
-      }
+    router.replace({
+      uri: this.callback_uri
     })
   },
+
   onReady() {
     const isInputCallback = !(this.input_callback == "")
     const isDateCallback = !(this.date_callback == "")
@@ -67,7 +65,6 @@ export default {
       this.event_id = _cache.event_id
       this.callback_uri = _cache.callback_uri
       this.extend = _cache.extend
-      this.page_title = _cache.page_title
 
       this.event_name = callback.input_text
       this.date = _cache.date
@@ -79,7 +76,6 @@ export default {
       this.event_id = _cache.event_id
       this.callback_uri = _cache.callback_uri
       this.extend = _cache.extend
-      this.page_title = _cache.page_title
       
       this.event_name = _cache.event_name
       this.date = callback.date
@@ -87,15 +83,14 @@ export default {
     }
     global.runGC()
   },
+
   editEventName() {
     router.push({
       uri: "/pages/input",
       params: {
-        "page_title": "编辑事件名称",
         "input_cache_data": JSON.stringify({
           "event_id": this.event_id,
           "extend": this.extend,
-          "page_title": this.page_title,
           "callback_uri": this.callback_uri,
           "date": this.date,
           "on_index": this.on_index
@@ -105,6 +100,7 @@ export default {
       }
     })
   },
+
   editDate() {
     router.push({
       uri: "/pages/inputdate",
@@ -112,7 +108,6 @@ export default {
         "input_cache_data": JSON.stringify({
           "event_id": this.event_id,
           "extend": this.extend,
-          "page_title": this.page_title,
           "callback_uri": this.callback_uri,
           "event_name": this.event_name,
           "on_index": this.on_index
@@ -126,72 +121,65 @@ export default {
   changeDisplayOnIndex(evt) {
     this.on_index = evt.checked
   },
+
   saveEvent() {
     if (this.event_name == "") {
       showToast({message: "事件名称不能为空"})
       return
     }
 
-    if (this.extend == "true") {
-      storage.get({
-        key: "count",
-        default: "0",
-        success: data => {
-          storage.set({
-            key: "count",
-            value: String(Number(data) + 1),
-            success: data => "extend count success"
-          })
-        }
-      })
-    }
-
-    storage.set({
-      key: `event${this.event_id}`,
-      value: JSON.stringify({
-        event_name: this.event_name,
-        date: this.date,
-        on_index: this.on_index
-      }),
+    storage.get({
+      key: "events",
+      default: "[]",
       success: data => {
-        router.replace({
-          uri: this.callback_uri,
+        let events = JSON.parse(data)
+        const _event = {
+          name: this.event_name,
+          date: this.date,
+          on_index: this.on_index
+        }
+        if (this.extend == "true") {
+          events.push(_event)
+        } else {
+          events[Number(this.event_id)] = _event
+        }
+        storage.set({
+          key: "events",
+          value: JSON.stringify(events),
+          success: data => {
+            router.replace({
+              uri: this.callback_uri,
+            })
+            showToast({message: "事件保存成功！"})
+            global.runGC()
+          },
+          fail: (data, code) =>{
+            showToast({message: "数据保存失败，可能是设备可用空间不足，错误码: " + code})
+          }
         })
-        showToast({message: "事件保存成功！"})
       }
     })
   },
+  
   deleteEvent() {
     storage.get({
-      key: 'count',
+      key: "events",
+      default: "[]",
       success: data => {
-        showToast({message: "正在删除事件"})
-        const count = Number(data)
-        console.log("event count: " + data)
-        storage.delete({
-          key: `event${this.event_id}`,
+        let events = JSON.parse(data)
+        events.splice(Number(this.event_id), 1)
+        storage.set({
+          key: "events",
+          value: JSON.stringify(events),
           success: data => {
-            console.log("delete event: " + this.event_id)
-            for (let i = Number(this.event_id); i < count; i++) {
-              // 把后续的事件全部前移
-              storage.get({
-                key: `event${i+1}`,
-                success: data => {
-                  storage.set({
-                    key: `event${i}`,
-                    value: data,
-                    success: data => console.log(`moved event ${i+1} to event ${i}`)
-                  })
-                }
-              })
-            }
-            setTimeout(() => {
-              global.runGC()
-              router.replace({
-                uri: this.callback_uri
-              })
-              showToast({message: "事件删除成功！"})
-            }, 800)
+            router.replace({
+              uri: this.callback_uri,
+            })
+            showToast({message: "事件删除成功！"})
+            global.runGC()
+          },
+          fail: (data, code) =>{
+            showToast({message: "数据保存失败，可能是设备可用空间不足，错误码: " + code})
           }
         })
       }
